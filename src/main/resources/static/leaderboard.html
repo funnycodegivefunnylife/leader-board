@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="text"], input[type="number"], input[type="submit"], select {
+            padding: 8px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2 id="leaderboardType">Leaderboard</h2>
+
+<form id="filterForm">
+    <label for="quizId">Quiz ID:</label>
+    <input type="text" id="quizId" required><br>
+    <label for="topN">Top N Users:</label>
+    <input type="number" id="topN" value="10" required><br>
+    <input type="submit" value="Filter">
+</form>
+
+<table id="leaderboard">
+    <thead>
+    <tr>
+        <th>Rank</th>
+        <th>Player Username</th>
+        <th>Score</th>
+    </tr>
+    </thead>
+    <tbody>
+    <!-- Leaderboard rows will be inserted here -->
+    </tbody>
+</table>
+
+<form id="addScoreForm">
+    <label for="playerUsername">Player Username:</label>
+    <input type="text" id="playerUsername" required><br>
+    <label for="score">Score:</label>
+    <input type="number" id="score" required><br>
+    <label for="quizIdAdd">Quiz ID:</label>
+    <input type="text" id="quizIdAdd" required><br>
+    <input type="submit" value="Add Score">
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        function fetchLeaderboard(quizId, topN) {
+            fetch(`http://localhost:8080/leaderboard/current?quizId=${quizId}&topN=${topN}`)
+                .then(response => response.json())
+                .then(data => {
+                    const leaderboardTable = document.getElementById('leaderboard');
+                    const tbody = leaderboardTable.querySelector('tbody');
+                    tbody.innerHTML = ''; // Clear previous leaderboard entries
+                    data.forEach((entry, index) => {
+                        const row = `<tr>
+                                    <td>${index + 1}</td>
+                                    <td>${entry.playerUsername}</td>
+                                    <td>${entry.score}</td>
+                                </tr>`;
+                        tbody.insertAdjacentHTML('beforeend', row);
+                    });
+                })
+                .catch(error => console.error('Error fetching leaderboard:', error));
+        }
+
+        // Initial fetch of leaderboard with default values
+        fetchLeaderboard('defaultQuizId', 10);
+
+        // Event listener for filter form submission
+        document.getElementById('filterForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            const quizId = document.getElementById('quizId').value;
+            const topN = parseInt(document.getElementById('topN').value);
+
+            fetchLeaderboard(quizId, topN);
+        });
+
+        // Event listener for add score form submission
+        document.getElementById('addScoreForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            const playerUsername = document.getElementById('playerUsername').value;
+            const score = parseInt(document.getElementById('score').value);
+            const quizId = document.getElementById('quizIdAdd').value;
+
+            // Submit the score via AJAX
+            fetch('http://localhost:8080/score', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'accept': '*/*'
+                },
+                body: JSON.stringify({
+                    playerUsername: playerUsername,
+                    score: score,
+                    timestamp: Date.now(),
+                    quizId: quizId
+                })
+            })
+                .then(response => {
+                    if (response.ok) {
+                        // If score submission is successful, fetch updated leaderboard with current filter values
+                        const quizId = document.getElementById('quizId').value;
+                        const topN = parseInt(document.getElementById('topN').value);
+                        fetchLeaderboard(quizId, topN);
+                        document.getElementById('addScoreForm').reset(); // Reset form fields
+                    } else {
+                        throw new Error('Failed to add score');
+                    }
+                })
+                .catch(error => console.error('Error adding score:', error));
+        });
+    });
+</script>
+
+</body>
+</html>
